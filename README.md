@@ -48,7 +48,7 @@ flowchart LR
 ## Seguridad
 HMAC con comparación en tiempo constante · secretos solo en Secrets Manager (el estado de Terraform nunca los ve) ·
 IAM de mínimo privilegio por función · diff y convenciones «desarmados» para que no cierren las etiquetas del prompt ·
-el mensaje de un secreto detectado **no reproduce** el secreto · tope de concurrencia (`reserved_concurrent_executions=10`) contra ráfagas de gasto · cifrado en SQS y DynamoDB.
+el mensaje de un secreto detectado **no reproduce** el secreto · concurrencia de la cola limitada a 5 workers simultáneos · cifrado en SQS y DynamoDB.
 
 ## Puesta en marcha
 ```bash
@@ -81,12 +81,12 @@ aws secretsmanager put-secret-value --secret-id py-guardian/anthropic-key   --se
 | Aplicación en la nube bien diseñada | ✅ Serverless, desacoplado por cola, DLQ, IaC, mínimo privilegio, métricas y alarmas |
 | Robusto ante fallos y abuso | ✅ Reintentos, degradación sin LLM, anti-alucinación, anti prompt-injection, tope de gasto |
 
-**Lo verificado:** 31 pruebas en verde, lint limpio y demo local de punta a punta (un push con secreto, debug, TODO suelto y nombres incorrectos produce `needs_changes` con 7 hallazgos y descarta 1 alucinación del LLM simulado).
+**Lo verificado:** 31 pruebas en verde, lint limpio, demo local, CI de GitHub en verde y `terraform validate/apply` en la cuenta AWS 189750305838 (`us-east-1`). El endpoint real respondió `200` a un ping firmado y `401` sin firma.
 
-**Lo que NO se pudo verificar aquí y debes validar en tu cuenta:**
-- `terraform validate/apply`: el sandbox no tiene Terraform; el código sigue la sintaxis del provider AWS 5.x pero no se ejecutó.
-- Llamadas reales a GitHub y a la API de Anthropic (sin credenciales ni red): la demo usa un LLM simulado. Con `ANTHROPIC_API_KEY` exportada, `make demo` usa el modelo real.
-- Los permisos exactos del token fine-grained de GitHub (confírmalos con la documentación vigente).
+**Pendiente de comprobar:**
+- Un push real que produzca estado y comentario en GitHub.
+- Llamadas reales a Anthropic: no hay clave de API; la demo local usa un LLM simulado y el despliegue ejecuta las reglas deterministas.
+- Sustituir el token temporal de `gh` por uno limitado al repositorio `JaqzO8/py-guardian`.
 
 **Limitaciones y riesgos conocidos**
 - El LLM es probabilístico: puede dejar pasar un problema o dar falsos positivos. Por eso solo aconseja mientras se calibra, y los bloqueos duros son deterministas. Mide `DiscardedLlmFindings` y los 👎 del equipo antes de activar `LLM_BLOCKING=true`.

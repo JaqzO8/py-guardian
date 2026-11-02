@@ -150,16 +150,15 @@ resource "aws_lambda_function" "receiver" {
 }
 
 resource "aws_lambda_function" "worker" {
-  function_name                  = "${var.project}-worker"
-  role                           = aws_iam_role.worker.arn
-  runtime                        = "python3.12"
-  architectures                  = ["arm64"]
-  handler                        = "guardian.worker.handler"
-  filename                       = data.archive_file.lambda.output_path
-  source_code_hash               = data.archive_file.lambda.output_base64sha256
-  timeout                        = 300
-  memory_size                    = 512
-  reserved_concurrent_executions = 10 # tope de gasto ante ráfagas de pushes
+  function_name    = "${var.project}-worker"
+  role             = aws_iam_role.worker.arn
+  runtime          = "python3.12"
+  architectures    = ["arm64"]
+  handler          = "guardian.worker.handler"
+  filename         = data.archive_file.lambda.output_path
+  source_code_hash = data.archive_file.lambda.output_base64sha256
+  timeout          = 300
+  memory_size      = 512
   environment {
     variables = {
       TABLE_NAME               = aws_dynamodb_table.state.name
