@@ -85,7 +85,7 @@ aws secretsmanager put-secret-value --secret-id py-guardian/anthropic-key   --se
 
 **Pendiente de comprobar:**
 - La revisión con IA: no hay clave de Anthropic y Bedrock devolvió `Operation not allowed` en esta cuenta. El despliegue ejecuta las reglas deterministas; la demo local usa un LLM simulado.
-- Sustituir el token temporal de `gh` por uno limitado al repositorio `JaqzO8/py-guardian`.
+- Corregir los permisos del PAT fine-grained de prueba: GitHub devolvió HTTP 403 al publicar el estado del commit `3e517d1`. El webhook está desactivado hasta que tenga `Commit statuses: Read and write` y `Contents: Read and write` para `JaqzO8/py-guardian`.
 
 **Limitaciones y riesgos conocidos**
 - El LLM es probabilístico: puede dejar pasar un problema o dar falsos positivos. Por eso solo aconseja mientras se calibra, y los bloqueos duros son deterministas. Mide `DiscardedLlmFindings` y los 👎 del equipo antes de activar `LLM_BLOCKING=true`.
