@@ -81,11 +81,10 @@ aws secretsmanager put-secret-value --secret-id py-guardian/anthropic-key   --se
 | Aplicación en la nube bien diseñada | ✅ Serverless, desacoplado por cola, DLQ, IaC, mínimo privilegio, métricas y alarmas |
 | Robusto ante fallos y abuso | ✅ Reintentos, degradación sin LLM, anti-alucinación, anti prompt-injection, tope de gasto |
 
-**Lo verificado:** 31 pruebas en verde, lint limpio, demo local, CI de GitHub en verde y `terraform validate/apply` en la cuenta AWS 189750305838 (`us-east-1`). El endpoint real respondió `200` a un ping firmado y `401` sin firma.
+**Lo verificado:** 31 pruebas en verde, lint limpio, demo local, CI de GitHub en verde y `terraform validate/apply` en la cuenta AWS 189750305838 (`us-east-1`). El endpoint real respondió `200` a un ping firmado y `401` sin firma. Un push real a `main` (`8282568`) recibió estado `success` y comentario; otro con una credencial ficticia (`893e7dd`) recibió `failure` con enlace a la línea; la corrección (`9165800`) volvió a `success`.
 
 **Pendiente de comprobar:**
-- Un push real que produzca estado y comentario en GitHub.
-- Llamadas reales a Anthropic: no hay clave de API; la demo local usa un LLM simulado y el despliegue ejecuta las reglas deterministas.
+- La revisión con IA: no hay clave de Anthropic y Bedrock devolvió `Operation not allowed` en esta cuenta. El despliegue ejecuta las reglas deterministas; la demo local usa un LLM simulado.
 - Sustituir el token temporal de `gh` por uno limitado al repositorio `JaqzO8/py-guardian`.
 
 **Limitaciones y riesgos conocidos**
