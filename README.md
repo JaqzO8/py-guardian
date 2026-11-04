@@ -86,6 +86,8 @@ aws secretsmanager put-secret-value --secret-id py-guardian/anthropic-key   --se
 
 **Alcance de la demo:** la revisión simulada no llama a Anthropic ni Bedrock. Activar un modelo real es una mejora opcional, fuera de este challenge en modo simulado.
 
+**Prueba del modo simulado en AWS:** el push [`66a8cda`](https://github.com/JaqzO8/py-guardian/commit/66a8cda) llegó al webhook (HTTP 202), recibió estado `success` y un comentario que dice `análisis IA: simulado (sin modelo)`; la CI terminó en verde. El test del simulador comprueba que `except:` desnudo genera una advertencia en la línea añadida.
+
 **Credencial de demostración:** sustituir el PAT compartido en el chat por uno nuevo limitado al repositorio, guardarlo como nueva versión de `py-guardian/github-token` y revocar el anterior. Para este flujo bastan `Commit statuses: RW`, `Contents: RW` y `Metadata: R`; retirar `Pull requests` y `Workflows` si no se usan.
 
 **Limitaciones y riesgos conocidos**
