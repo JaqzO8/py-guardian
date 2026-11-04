@@ -2,9 +2,9 @@
 
 **Challenge:** *un agente que, cuando un dev haga push, supervise el código y verifique que cuadre con los lineamientos y convenciones del proyecto (Py).*
 
-Solución serverless en AWS + GitHub + Claude. Cada push dispara una revisión que combina
-**verificaciones deterministas** (las únicas que bloquean de forma fiable) y un **agente LLM**
-(que detecta lo que las reglas fijas no ven: nombres, capas, patrones). El resultado llega como
+Solución serverless en AWS + GitHub, con revisión por IA opcional. Cada push dispara
+**verificaciones deterministas**; el agente LLM puede añadir hallazgos cuando se configura
+un proveedor compatible. El resultado llega como
 **estado del commit** (verde/rojo, apto para branch protection) y **comentario en el commit** con enlaces a cada línea.
 
 ## Arquitectura
@@ -71,21 +71,21 @@ aws secretsmanager put-secret-value --secret-id py-guardian/anthropic-key   --se
 
 ## ⚖️ Veredicto final del challenge
 
-**Veredicto: CUMPLE.** El agente detecta el push, analiza el diff contra las convenciones del proyecto y devuelve un resultado accionable y bloqueante, con una arquitectura de nube coherente, segura y observable.
+**Veredicto: CUMPLE para la revisión determinista desplegada.** El agente detecta el push, analiza el diff contra las convenciones del proyecto y devuelve un resultado accionable y bloqueante. La revisión con IA está implementada, pero no se verificó en AWS.
 
 | Requisito | Resultado |
 |---|---|
 | Se activa solo con cada push | ✅ Webhook → API Gateway → Lambda, con firma validada y deduplicación |
-| Supervisa que el código cuadre con las convenciones | ✅ Reglas deterministas + agente Claude guiado por `CONVENTIONS.md` del propio commit |
+| Supervisa que el código cuadre con las convenciones | ✅ Reglas deterministas; integración Claude opcional pendiente de prueba en AWS |
 | Resultado visible y útil al dev | ✅ Estado verde/rojo + comentario con enlace a cada línea y sugerencia de corrección |
 | Aplicación en la nube bien diseñada | ✅ Serverless, desacoplado por cola, DLQ, IaC, mínimo privilegio, métricas y alarmas |
 | Robusto ante fallos y abuso | ✅ Reintentos, degradación sin LLM, anti-alucinación, anti prompt-injection, tope de gasto |
 
-**Lo verificado:** 31 pruebas en verde, lint limpio, demo local, CI de GitHub en verde y `terraform validate/apply` en la cuenta AWS 189750305838 (`us-east-1`). El endpoint real respondió `200` a un ping firmado y `401` sin firma. Un push real a `main` (`8282568`) recibió estado `success` y comentario; otro con una credencial ficticia (`893e7dd`) recibió `failure` con enlace a la línea; la corrección (`9165800`) volvió a `success`.
+**Lo verificado:** 31 pruebas en verde, lint limpio, demo local, CI de GitHub en verde y `terraform validate/apply` en la cuenta AWS 189750305838 (`us-east-1`). El endpoint real respondió `200` a un ping firmado y `401` sin firma. Un push real a `main` (`8282568`) recibió estado `success` y comentario; otro con una credencial ficticia (`893e7dd`) recibió `failure` con enlace a la línea; la corrección (`9165800`) volvió a `success`. Con el PAT de alcance limitado, el push `966a9bc` llegó al webhook (HTTP 202) y recibió `success` y comentario del worker; el webhook quedó activo.
 
-**Pendiente de comprobar:**
-- La revisión con IA: no hay clave de Anthropic y Bedrock devolvió `Operation not allowed` en esta cuenta. El despliegue ejecuta las reglas deterministas; la demo local usa un LLM simulado.
-- Corregir los permisos del PAT fine-grained de prueba: GitHub devolvió HTTP 403 al publicar el estado del commit `3e517d1`. El webhook está desactivado hasta que tenga `Commit statuses: Read and write` y `Contents: Read and write` para `JaqzO8/py-guardian`.
+**Pendiente de comprobar:** la revisión con IA: no hay clave de Anthropic y Bedrock devolvió `Operation not allowed` en esta cuenta. El despliegue ejecuta las reglas deterministas; la demo local usa un LLM simulado.
+
+**Credencial de demostración:** sustituir el PAT compartido en el chat por uno nuevo limitado al repositorio, guardarlo como nueva versión de `py-guardian/github-token` y revocar el anterior. Para este flujo bastan `Commit statuses: RW`, `Contents: RW` y `Metadata: R`; retirar `Pull requests` y `Workflows` si no se usan.
 
 **Limitaciones y riesgos conocidos**
 - El LLM es probabilístico: puede dejar pasar un problema o dar falsos positivos. Por eso solo aconseja mientras se calibra, y los bloqueos duros son deterministas. Mide `DiscardedLlmFindings` y los 👎 del equipo antes de activar `LLM_BLOCKING=true`.
