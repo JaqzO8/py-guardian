@@ -13,6 +13,7 @@ def _bool(value: str | None, default: bool) -> bool:
 @dataclass(frozen=True)
 class Settings:
     model: str = "claude-sonnet-5-5"
+    llm_mode: str = "anthropic"    # anthropic | simulated
     max_tokens: int = 1500
     max_files: int = 25              # tope de archivos enviados al LLM por push
     max_patch_chars: int = 12_000    # tope de caracteres de diff por archivo
@@ -28,6 +29,7 @@ class Settings:
         d = cls()
         return cls(
             model=os.getenv("MODEL", d.model),
+            llm_mode=os.getenv("LLM_MODE", d.llm_mode),
             max_tokens=int(os.getenv("MAX_TOKENS", d.max_tokens)),
             max_files=int(os.getenv("MAX_FILES", d.max_files)),
             max_patch_chars=int(os.getenv("MAX_PATCH_CHARS", d.max_patch_chars)),

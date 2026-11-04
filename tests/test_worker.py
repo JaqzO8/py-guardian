@@ -1,6 +1,7 @@
 import json
 
 from fixtures import BAD_COMMITS, BAD_FILE, CLEAN_FILE, FakeGH, FakeLLM
+from guardian.agent import SimulatedClient
 from guardian.config import Settings
 from guardian.models import Finding
 from guardian.report import decide, render_markdown
@@ -46,6 +47,13 @@ def test_clean_push_passes():
     r = process(JOB, gh=FakeGH([CLEAN_FILE], ["fix(core): logger"]),
                 llm=FakeLLM('{"findings": []}'), settings=Settings())
     assert r.verdict == "pass"
+
+
+def test_simulated_mode_is_explicit_in_commit_comment():
+    gh = FakeGH([CLEAN_FILE], ["fix(core): logger"])
+    r = process(JOB, gh=gh, llm=SimulatedClient(), settings=Settings())
+    assert r.llm_status == "simulated"
+    assert "simulado (sin modelo)" in gh.comments[0]
 
 
 def test_missing_conventions_skips_llm_with_warning():

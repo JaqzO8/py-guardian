@@ -41,7 +41,10 @@ def process(job: dict, *, gh, llm, settings: Settings) -> Report:
         try:
             llm_findings, discarded, failed = agent.review_all(llm, conventions, to_llm, settings)
             findings += rpt.apply_llm_policy(llm_findings, settings.llm_blocking)
-            llm_status = "ok" if not failed else "partial" if len(failed) < len(to_llm) else "failed"
+            if not failed:
+                llm_status = "simulated" if isinstance(llm, agent.SimulatedClient) else "ok"
+            else:
+                llm_status = "partial" if len(failed) < len(to_llm) else "failed"
         except Exception:
             log.exception("el agente falló; se degrada a verificaciones deterministas")
             llm_status = "failed"
@@ -62,8 +65,11 @@ def handler(event, context):
 
     settings = Settings.from_env()
     gh = GitHubClient(get_secret(os.environ["GITHUB_TOKEN_SECRET_ARN"]))
-    key = get_secret(os.environ["ANTHROPIC_KEY_SECRET_ARN"]).strip()
-    llm = agent.AnthropicClient(key, settings) if key and key != "REPLACE_ME" else None
+    if settings.llm_mode == "simulated":
+        llm = agent.SimulatedClient()
+    else:
+        key = get_secret(os.environ["ANTHROPIC_KEY_SECRET_ARN"]).strip()
+        llm = agent.AnthropicClient(key, settings) if key and key != "REPLACE_ME" else None
     store = Store(os.environ["TABLE_NAME"])
 
     failures = []

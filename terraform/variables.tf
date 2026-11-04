@@ -14,6 +14,16 @@ variable "model" {
   default     = "claude-sonnet-5-5"
 }
 
+variable "llm_mode" {
+  description = "simulated = revisión de demostración sin modelo; anthropic = API real"
+  type        = string
+  default     = "simulated"
+  validation {
+    condition     = contains(["simulated", "anthropic"], var.llm_mode)
+    error_message = "llm_mode debe ser simulated o anthropic."
+  }
+}
+
 variable "llm_blocking" {
   description = "false = los errores del LLM solo advierten; true = también bloquean"
   type        = bool

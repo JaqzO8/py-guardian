@@ -2,9 +2,9 @@
 
 **Challenge:** *un agente que, cuando un dev haga push, supervise el código y verifique que cuadre con los lineamientos y convenciones del proyecto (Py).*
 
-Solución serverless en AWS + GitHub, con revisión por IA opcional. Cada push dispara
-**verificaciones deterministas**; el agente LLM puede añadir hallazgos cuando se configura
-un proveedor compatible. El resultado llega como
+Solución serverless en AWS + GitHub. Cada push dispara **verificaciones deterministas**
+y una revisión simulada, sin API externa, que detecta `except:` desnudo en Python.
+El resultado llega como
 **estado del commit** (verde/rojo, apto para branch protection) y **comentario en el commit** con enlaces a cada línea.
 
 ## Arquitectura
@@ -20,7 +20,7 @@ flowchart LR
   Q --> W[Lambda worker]
   W -->|diff, CONVENTIONS.md| GHAPI[GitHub API]
   W --> C1[Verificaciones deterministas]
-  W --> C2[Agente Claude por archivo, en paralelo]
+  W --> C2[Revisión simulada por archivo; Claude opcional]
   C1 & C2 --> V{Veredicto en código}
   V --> GHAPI -->|status + comentario| Dev
   W --> CW[CloudWatch: métricas EMF, logs, dashboard]
@@ -31,7 +31,7 @@ flowchart LR
 1. **receiver** (≤10 s exigidos por GitHub): verifica `X-Hub-Signature-256`, ignora ping/tags/borrado de ramas, deduplica por `X-GitHub-Delivery` y encola. Si falla al encolar, libera la marca para que el reintento de GitHub entre.
 2. **worker**: marca `pending`; obtiene el diff (`compare`, con fallback a `commits/{sha}` para ramas nuevas y force-push); lee `CONVENTIONS.md` **de ese mismo commit**; filtra lockfiles/binarios/generados.
 3. **Verificaciones deterministas** (`checks.py`): secretos, Conventional Commits, snake_case en archivos, `print`/`console.log`/`debugger` olvidados, TODO sin ticket, tests ausentes, tamaño de cambio.
-4. **Agente** (`agent.py`): un llamado por archivo (en paralelo, tope configurable) con convenciones + diff numerado; devuelve JSON de hallazgos.
+4. **Agente** (`agent.py`): en la demo, un simulador revisa cada diff numerado y devuelve JSON de hallazgos. `LLM_MODE=anthropic` permite usar Claude cuando exista una clave.
 5. **Veredicto** (`report.py`): lo calcula el código, no el modelo. Publica estado + comentario y guarda historial y métricas.
 
 ## Decisiones de diseño que importan
@@ -52,11 +52,12 @@ el mensaje de un secreto detectado **no reproduce** el secreto · concurrencia d
 
 ## Puesta en marcha
 ```bash
-make test && make demo                 # 31 pruebas y demo local sin red
+make test && make demo                 # 34 pruebas y demo local sin red
 cd terraform && terraform init && terraform apply
 # Cargar secretos (los valores nunca pasan por Terraform):
 aws secretsmanager put-secret-value --secret-id py-guardian/webhook-secret --secret-string "$(openssl rand -hex 32)"
 aws secretsmanager put-secret-value --secret-id py-guardian/github-token   --secret-string "github_pat_..."
+# Solo si cambias LLM_MODE a anthropic:
 aws secretsmanager put-secret-value --secret-id py-guardian/anthropic-key   --secret-string "sk-ant-..."
 ```
 1. **Token de GitHub** (fine-grained, solo los repos objetivo): *Commit statuses: RW*, *Contents: RW* (comentarios en commits), *Metadata: R*.
@@ -65,25 +66,25 @@ aws secretsmanager put-secret-value --secret-id py-guardian/anthropic-key   --se
 4. Opcional: `-var alert_email=tu@correo` para recibir alarmas.
 
 ## Pruebas
-`pytest` — 31 casos: firma HMAC, ignorar eventos, deduplicación, fallo de cola, numeración de líneas del parche, cada regla determinista, líneas alucinadas, escape de etiquetas del prompt, fallo parcial del LLM, caída total del LLM, tope de archivos, política asesor/bloqueante y render con tope de hallazgos.
+`pytest` — 34 casos: firma HMAC, ignorar eventos, deduplicación, fallo de cola, numeración de líneas del parche, reglas deterministas, simulador, líneas alucinadas, escape de etiquetas del prompt, fallo parcial del LLM, caída total del LLM, tope de archivos, política asesor/bloqueante y render con tope de hallazgos.
 
 ---
 
 ## ⚖️ Veredicto final del challenge
 
-**Veredicto: CUMPLE para la revisión determinista desplegada.** El agente detecta el push, analiza el diff contra las convenciones del proyecto y devuelve un resultado accionable y bloqueante. La revisión con IA está implementada, pero no se verificó en AWS.
+**Veredicto: CUMPLE en modo de demostración simulada.** El agente detecta el push, analiza el diff contra las convenciones y devuelve un resultado accionable y bloqueante. La simulación no usa un modelo de IA real.
 
 | Requisito | Resultado |
 |---|---|
 | Se activa solo con cada push | ✅ Webhook → API Gateway → Lambda, con firma validada y deduplicación |
-| Supervisa que el código cuadre con las convenciones | ✅ Reglas deterministas; integración Claude opcional pendiente de prueba en AWS |
+| Supervisa que el código cuadre con las convenciones | ✅ Reglas deterministas y simulador de una regla adicional de `CONVENTIONS.md` |
 | Resultado visible y útil al dev | ✅ Estado verde/rojo + comentario con enlace a cada línea y sugerencia de corrección |
 | Aplicación en la nube bien diseñada | ✅ Serverless, desacoplado por cola, DLQ, IaC, mínimo privilegio, métricas y alarmas |
 | Robusto ante fallos y abuso | ✅ Reintentos, degradación sin LLM, anti-alucinación, anti prompt-injection, tope de gasto |
 
-**Lo verificado:** 31 pruebas en verde, lint limpio, demo local, CI de GitHub en verde y `terraform validate/apply` en la cuenta AWS 189750305838 (`us-east-1`). El endpoint real respondió `200` a un ping firmado y `401` sin firma. Un push real a `main` (`8282568`) recibió estado `success` y comentario; otro con una credencial ficticia (`893e7dd`) recibió `failure` con enlace a la línea; la corrección (`9165800`) volvió a `success`. Con el PAT de alcance limitado, el push `966a9bc` llegó al webhook (HTTP 202) y recibió `success` y comentario del worker; el webhook quedó activo.
+**Lo verificado:** 34 pruebas en verde, lint limpio, demo local, CI de GitHub en verde y `terraform validate/apply` en la cuenta AWS 189750305838 (`us-east-1`). El endpoint real respondió `200` a un ping firmado y `401` sin firma. Un push real a `main` (`8282568`) recibió estado `success` y comentario; otro con una credencial ficticia (`893e7dd`) recibió `failure` con enlace a la línea; la corrección (`9165800`) volvió a `success`. Con el PAT de alcance limitado, el push `966a9bc` llegó al webhook (HTTP 202) y recibió `success` y comentario del worker; el webhook quedó activo.
 
-**Pendiente de comprobar:** la revisión con IA: no hay clave de Anthropic y Bedrock devolvió `Operation not allowed` en esta cuenta. El despliegue ejecuta las reglas deterministas; la demo local usa un LLM simulado.
+**Alcance de la demo:** la revisión simulada no llama a Anthropic ni Bedrock. Activar un modelo real es una mejora opcional, fuera de este challenge en modo simulado.
 
 **Credencial de demostración:** sustituir el PAT compartido en el chat por uno nuevo limitado al repositorio, guardarlo como nueva versión de `py-guardian/github-token` y revocar el anterior. Para este flujo bastan `Commit statuses: RW`, `Contents: RW` y `Metadata: R`; retirar `Pull requests` y `Workflows` si no se usan.
 

@@ -165,6 +165,7 @@ resource "aws_lambda_function" "worker" {
       GITHUB_TOKEN_SECRET_ARN  = aws_secretsmanager_secret.github.arn
       ANTHROPIC_KEY_SECRET_ARN = aws_secretsmanager_secret.anthropic.arn
       MODEL                    = var.model
+      LLM_MODE                 = var.llm_mode
       LLM_BLOCKING             = tostring(var.llm_blocking)
     }
   }

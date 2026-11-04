@@ -40,17 +40,18 @@ def render_markdown(report: Report, repo: str, sha: str) -> str:
     order = {ERROR: 0, WARNING: 1, NOTICE: 2}
     fs = sorted(report.findings, key=lambda f: (order.get(f.severity, 3), f.file or "", f.line or 0))
     counts = {s: sum(f.severity == s for f in fs) for s in (ERROR, WARNING, NOTICE)}
+    analysis = "simulado (sin modelo)" if report.llm_status == "simulated" else report.llm_status
     lines = [f"## 🛡️ Py Guardian — {HEADLINE[report.verdict]}",
              f"`{sha[:7]}` · {len(report.reviewed_files)} archivos revisados · "
              f"errores: {counts[ERROR]} · advertencias: {counts[WARNING]} · "
-             f"sugerencias: {counts[NOTICE]} · análisis IA: **{report.llm_status}**", ""]
+             f"sugerencias: {counts[NOTICE]} · análisis IA: **{analysis}**", ""]
     for f in fs[:MAX_LISTED]:
         where = ""
         if f.file:
             anchor = f"#L{f.line}" if f.line else ""
             label = f"{f.file}:{f.line}" if f.line else f.file
             where = f" [`{label}`](https://github.com/{repo}/blob/{sha}/{f.file}{anchor})"
-        origin = "🤖" if f.source == "llm" else "🔧"
+        origin = ("🧪" if report.llm_status == "simulated" else "🤖") if f.source == "llm" else "🔧"
         lines.append(f"- {ICON.get(f.severity, '•')} {origin} **{f.rule}**{where} — {f.message}")
         if f.suggestion:
             lines.append(f"  - 💡 {f.suggestion}")
@@ -60,6 +61,6 @@ def render_markdown(report: Report, repo: str, sha: str) -> str:
         lines.append(f"\n<details><summary>{len(report.skipped_files)} archivos no revisados "
                      f"(ignorados o sobre el límite)</summary>\n\n"
                      + "\n".join(f"- `{p}`" for p in report.skipped_files[:50]) + "\n</details>")
-    lines.append("\n<sub>🔧 verificación determinista · 🤖 análisis IA. "
+    lines.append("\n<sub>🔧 verificación determinista · 🧪 simulación sin modelo · 🤖 análisis IA real. "
                  "Las reglas viven en `CONVENTIONS.md`.</sub>")
     return "\n".join(lines)

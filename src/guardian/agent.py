@@ -57,6 +57,23 @@ class AnthropicClient:
                        if b.get("type") == "text")
 
 
+class SimulatedClient:
+    """Demo local sin modelo: comprueba una convención sobre el diff numerado."""
+
+    def complete(self, system: str, user: str) -> str:
+        findings = []
+        conventions = user.split("<conventions>\n", 1)[-1].split("</conventions>", 1)[0]
+        if "except:" in conventions and re.search(r'path="[^"]+\.py"', user):
+            diff = user.split("<diff>\n", 1)[-1].split("</diff>", 1)[0]
+            for line, code in re.findall(r"^\s*(\d+) \+ (.*)$", diff, flags=re.M):
+                if re.match(r"^\s*except\s*:\s*(?:#.*)?$", code):
+                    findings.append({"line": int(line), "rule": "bare-except",
+                                     "severity": "warning",
+                                     "message": "except: desnudo; captura una excepción específica.",
+                                     "suggestion": "Usa except TipoDeError: según el caso."})
+        return json.dumps({"findings": findings}, ensure_ascii=False)
+
+
 def _defang(text: str) -> str:
     """Impide que el contenido cierre las etiquetas delimitadoras del prompt."""
     return re.sub(r"</(diff|conventions)", r"<\\/\1", text, flags=re.I)

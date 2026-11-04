@@ -1,9 +1,23 @@
 import json
 
 from fixtures import BAD_FILE, FakeLLM
-from guardian.agent import build_prompt, extract_findings, review_all, review_file
+from guardian.agent import SimulatedClient, build_prompt, extract_findings, review_all, review_file
 from guardian.config import Settings
 from guardian.models import FileChange
+
+
+def test_simulated_review_flags_bare_except_on_added_python_line():
+    change = FileChange("src/example.py", "modified",
+                        "@@ -0,0 +1,3 @@\n+try:\n+    run()\n+except:\n", 3)
+    found, dropped = review_file(SimulatedClient(), "Prohibido except: desnudo", change, Settings())
+    assert dropped == 0
+    assert [(f.rule, f.line, f.severity) for f in found] == [("bare-except", 3, "warning")]
+
+
+def test_simulated_review_ignores_non_python_files():
+    change = FileChange("docs/example.md", "modified", "@@ -0,0 +1 @@\n+except:\n", 1)
+    found, dropped = review_file(SimulatedClient(), "Prohibido except: desnudo", change, Settings())
+    assert found == [] and dropped == 0
 
 S = Settings()
 
