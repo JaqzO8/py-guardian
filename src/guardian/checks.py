@@ -9,7 +9,7 @@ from .diffparse import AddedLine, parse_added_lines
 from .models import ERROR, WARNING, FileChange, Finding
 
 CONVENTIONAL_COMMIT = re.compile(
-    r"^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)"
+    r"^(feat|fix|docs|refactor|test|chore)"
     r"(\([\w\-./]+\))?!?: \S.{0,70}$"
 )
 SNAKE_PY = re.compile(r"^[a-z_][a-z0-9_]*\.py$")
@@ -50,7 +50,9 @@ def check_commit_messages(messages: list[str]) -> list[Finding]:
     return out
 
 
-def check_file(change: FileChange, added: list[AddedLine]) -> list[Finding]:
+def check_file(change: FileChange, added: list[AddedLine],
+               max_additions: int = MAX_ADDITIONS_PER_FILE) -> list[Finding]:
+    """Revisa las líneas añadidas y el nombre de un archivo cambiado."""
     out: list[Finding] = []
     path = change.path
     ext = posixpath.splitext(path)[1]
@@ -61,7 +63,7 @@ def check_file(change: FileChange, added: list[AddedLine]) -> list[Finding]:
         out.append(Finding("file-naming-snake-case", WARNING,
                            f"El archivo «{base}» debe usar snake_case.", file=path))
 
-    if change.additions > MAX_ADDITIONS_PER_FILE:
+    if change.additions > max_additions:
         out.append(Finding("pr-size", WARNING,
                            f"{change.additions} líneas añadidas en un archivo; divide el cambio.",
                            file=path))
@@ -80,7 +82,7 @@ def check_file(change: FileChange, added: list[AddedLine]) -> list[Finding]:
                 out.append(Finding("debug-leftover", WARNING,
                                    "Código de depuración olvidado; usa el logger del proyecto.",
                                    file=path, line=line.number))
-        if TODO_NO_TICKET.search(line.text):
+        if ext in {".py", ".js", ".jsx", ".ts", ".tsx"} and TODO_NO_TICKET.search(line.text):
             out.append(Finding("todo-without-ticket", WARNING,
                                "TODO/FIXME sin ticket asociado (ej.: TODO(PROJ-123)).",
                                file=path, line=line.number))

@@ -1,0 +1,25 @@
+# Política ejecutable por GitHub Actions. Cambiar una regla requiere un PR.
+[policy]
+max_added_lines_per_file = 500
+production_roots = ["src/", "app/"]
+test_roots = ["tests/"]
+forbidden_names = ["data", "tmp", "x", "foo"]
+require_test_change_for_source = true
+
+[rules]
+secret-detected = true
+commit-conventional = true
+file-naming-snake-case = true
+debug-leftover = true
+todo-without-ticket = true
+pr-size = true
+tests-missing = true
+python-naming = true
+meaningful-name = true
+api-layering = true
+service-http-coupling = true
+bare-except = true
+silent-except = true
+business-error-type = true
+public-type-hints = true
+public-docstring = true
