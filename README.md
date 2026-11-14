@@ -7,6 +7,25 @@ y una revisión simulada, sin API externa, que detecta `except:` desnudo en Pyth
 El resultado llega como
 **estado del commit** (verde/rojo, apto para branch protection) y **comentario en el commit** con enlaces a cada línea.
 
+## Puerta obligatoria y gratuita
+
+El job `guardian-policy` de [GitHub Actions](.github/workflows/ci.yml) ejecuta
+`python -m guardian.gate` en cada push y pull request. Lee
+[`guardian-policy.toml`](guardian-policy.toml) y aplica las reglas de
+[`CONVENTIONS.md`](CONVENTIONS.md): nombres, capas, errores, type hints, docstrings,
+tests, secretos, depuración, TODO, tamaño y mensajes de commit. Cualquier infracción
+produce un check fallido. GitHub protege `main`: exige PR y el check
+`guardian-policy`; así un cambio inválido no se incorpora a `main`.
+
+El motor de reglas es Python estándar, sin clave ni modelo de pago. El webhook de AWS
+sigue dando un comentario inmediato; el workflow es la puerta obligatoria. GitHub
+acepta pushes a ramas de trabajo antes de ejecutar Actions, pero bloquea su
+integración en `main` cuando falla el check. Para probarlo localmente:
+
+```bash
+PYTHONPATH=src python -m guardian.gate --base HEAD~1 --head HEAD
+```
+
 ## Arquitectura
 
 ```mermaid
@@ -52,7 +71,7 @@ el mensaje de un secreto detectado **no reproduce** el secreto · concurrencia d
 
 ## Puesta en marcha
 ```bash
-make test && make demo                 # 34 pruebas y demo local sin red
+make test && make demo                 # 37 pruebas y demo local sin red
 cd terraform && terraform init && terraform apply
 # Cargar secretos (los valores nunca pasan por Terraform):
 aws secretsmanager put-secret-value --secret-id py-guardian/webhook-secret --secret-string "$(openssl rand -hex 32)"
@@ -66,7 +85,7 @@ aws secretsmanager put-secret-value --secret-id py-guardian/anthropic-key   --se
 4. Opcional: `-var alert_email=tu@correo` para recibir alarmas.
 
 ## Pruebas
-`pytest` — 34 casos: firma HMAC, ignorar eventos, deduplicación, fallo de cola, numeración de líneas del parche, reglas deterministas, simulador, líneas alucinadas, escape de etiquetas del prompt, fallo parcial del LLM, caída total del LLM, tope de archivos, política asesor/bloqueante y render con tope de hallazgos.
+`pytest` — 37 casos, incluidos los del gate de convenciones, firma HMAC, deduplicación, simulador, veredicto y render.
 
 ---
 
