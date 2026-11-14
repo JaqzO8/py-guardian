@@ -78,7 +78,7 @@ el mensaje de un secreto detectado **no reproduce** el secreto · concurrencia d
 
 ## Puesta en marcha
 ```bash
-make test && make demo                 # 37 pruebas y demo local sin red
+make test && make demo                 # 40 pruebas y demo local sin red
 cd terraform && terraform init && terraform apply
 # Cargar secretos (los valores nunca pasan por Terraform):
 aws secretsmanager put-secret-value --secret-id py-guardian/webhook-secret --secret-string "$(openssl rand -hex 32)"
@@ -92,7 +92,7 @@ aws secretsmanager put-secret-value --secret-id py-guardian/anthropic-key   --se
 4. Opcional: `-var alert_email=tu@correo` para recibir alarmas.
 
 ## Pruebas
-`pytest` — 37 casos, incluidos los del gate de convenciones, firma HMAC, deduplicación, simulador, veredicto y render.
+`pytest` — 40 casos, incluidos los del gate de convenciones, firma HMAC, deduplicación, simulador, veredicto y render.
 
 ---
 

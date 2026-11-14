@@ -41,6 +41,16 @@ def test_secret_value_is_never_echoed():
         assert "abcdefghijklmnop" not in f.message
 
 
+def test_fine_grained_github_token_is_blocked_without_echoing_it():
+    from guardian.models import FileChange
+
+    token = "github_" + "pat_" + "A" * 30
+    patch = f"@@ -0,0 +1 @@\n+TOKEN = '{token}'\n"
+    found = run_checks([FileChange("src/token_example.py", "modified", patch, 1)], [])
+    assert any(f.rule == "secret-detected" for f in found)
+    assert all(token not in f.message for f in found)
+
+
 def test_clean_file_has_no_findings():
     assert run_checks([CLEAN_FILE], ["fix(core): corrige logger"]) == []
 

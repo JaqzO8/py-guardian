@@ -19,7 +19,7 @@ TEST_PATH = re.compile(
 SECRET_PATTERNS = {
     "AWS access key": re.compile(r"AKIA[0-9A-Z]{16}"),
     "clave privada": re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"),
-    "token de GitHub": re.compile(r"gh[pousr]_[A-Za-z0-9]{36,}"),
+    "token de GitHub": re.compile(r"(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{20,})"),
     "clave de Anthropic": re.compile(r"sk-ant-[A-Za-z0-9_\-]{20,}"),
     "credencial literal": re.compile(
         r"""(?i)\b(api[_-]?key|secret|passw(?:or)?d|token)\b\s*[:=]\s*['"][^'"\s]{8,}['"]"""
