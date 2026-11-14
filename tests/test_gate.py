@@ -43,3 +43,31 @@ def test_gate_accepts_compliant_source_with_tests():
 def test_policy_can_disable_a_specific_rule():
     policy = {**POLICY, "rules": {**POLICY["rules"], "commit-conventional": False}}
     assert review([], ["bad message"], {}, policy) == []
+
+
+def test_exception_and_name_rules_distinguish_valid_code():
+    source = ('from app.errors import UserNotFound\n'
+              'MAX_USERS = 10\n'
+              'def get_user(user_id: int) -> int:\n'
+              '    """Busca un usuario."""\n'
+              '    if user_id > MAX_USERS:\n'
+              '        raise UserNotFound(user_id)\n'
+              '    return user_id\n')
+    code = FileChange("app/services/user_service.py", "modified",
+                      "@@ -0,0 +1,7 @@\n" + "".join("+" + line + "\n" for line in source.splitlines()), 7)
+    test = FileChange("tests/test_user_service.py", "modified", "@@ -0,0 +1 @@\n+assert True\n", 1)
+    assert review([code, test], ["fix: maneja usuario ausente"], {code.path: source}, POLICY) == []
+
+
+def test_silent_exception_and_uppercase_function_are_blocked():
+    source = ('def GET_USER(user_id: int) -> int:\n'
+              '    """Busca un usuario."""\n'
+              '    try:\n'
+              '        return user_id\n'
+              '    except Exception:\n'
+              '        pass\n')
+    code = FileChange("app/services/user_service.py", "modified",
+                      "@@ -0,0 +1,6 @@\n" + "".join("+" + line + "\n" for line in source.splitlines()), 6)
+    test = FileChange("tests/test_user_service.py", "modified", "@@ -0,0 +1 @@\n+assert True\n", 1)
+    rules = {f.rule for f in review([code, test], ["fix: maneja errores"], {code.path: source}, POLICY)}
+    assert {"python-naming", "silent-except"} <= rules

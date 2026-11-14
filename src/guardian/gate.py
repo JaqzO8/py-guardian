@@ -17,7 +17,6 @@ SNAKE = re.compile(r"^[a-z_][a-z0-9_]*$")
 UPPER_SNAKE = re.compile(r"^[A-Z][A-Z0-9_]*$")
 PASCAL = re.compile(r"^[A-Z][A-Za-z0-9]*$")
 HTTP_NAMES = {"request", "response", "flask", "fastapi", "starlette", "django"}
-BUILTIN_BUSINESS_ERRORS = {"ValueError", "RuntimeError", "Exception"}
 
 
 def load_policy(path: pathlib.Path) -> dict:
@@ -74,11 +73,25 @@ def _check_python(path: str, source: str, added: set[int], policy: dict) -> list
     section = path.split("/")
     in_api = "api" in section
     in_service = "services" in section
+    parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+    error_types = set()
+    error_modules = set()
+    for imp in ast.walk(tree):
+        if isinstance(imp, ast.ImportFrom):
+            if imp.module and imp.module.split(".")[-1] == "errors":
+                error_types.update(alias.asname or alias.name for alias in imp.names)
+            elif any(alias.name == "errors" for alias in imp.names):
+                error_modules.update(alias.asname or alias.name for alias in imp.names if alias.name == "errors")
+        elif isinstance(imp, ast.Import):
+            error_modules.update(alias.asname or alias.name.split(".")[0] for alias in imp.names
+                                 if alias.name.split(".")[-1] == "errors")
 
-    def _name_check(name: str, line: int, *, class_name: bool = False) -> None:
+    def _name_check(name: str, line: int, *, class_name: bool = False,
+                    allow_upper: bool = False) -> None:
         if name in forbidden:
             out.append(_finding("meaningful-name", f"«{name}» no describe su propósito.", path, line))
-        valid = PASCAL.fullmatch(name) if class_name else (SNAKE.fullmatch(name) or UPPER_SNAKE.fullmatch(name))
+        valid = PASCAL.fullmatch(name) if class_name else (
+            SNAKE.fullmatch(name) or (allow_upper and UPPER_SNAKE.fullmatch(name)))
         if not valid:
             out.append(_finding("python-naming", f"Nombre «{name}» fuera de la convención.", path, line))
 
@@ -95,17 +108,20 @@ def _check_python(path: str, source: str, added: set[int], policy: dict) -> list
                 if param.arg not in {"self", "cls"}:
                     _name_check(param.arg, line)
             if not node.name.startswith("_"):
-                if node.returns is None or any(a.annotation is None for a in params
-                                               if a.arg not in {"self", "cls"}):
+                typed_params = [a for a in [*params, node.args.vararg, node.args.kwarg]
+                                if a is not None and a.arg not in {"self", "cls"}]
+                if node.returns is None or any(a.annotation is None for a in typed_params):
                     out.append(_finding("public-type-hints", "Función pública sin type hints completos.", path, line))
-                if not ast.get_docstring(node):
-                    out.append(_finding("public-docstring", "Función pública sin docstring.", path, line))
+                docstring = ast.get_docstring(node)
+                if not docstring or "\n" in docstring:
+                    out.append(_finding("public-docstring", "Función pública sin docstring de una línea.", path, line))
         elif isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            is_constant_scope = isinstance(parents.get(node), (ast.Module, ast.ClassDef))
             for target in targets:
                 for child in ast.walk(target):
                     if isinstance(child, ast.Name):
-                        _name_check(child.id, line)
+                        _name_check(child.id, line, allow_upper=is_constant_scope)
         elif isinstance(node, (ast.Import, ast.ImportFrom)):
             module = node.module if isinstance(node, ast.ImportFrom) else ""
             imports = [module, *(a.name for a in node.names)]
@@ -120,9 +136,13 @@ def _check_python(path: str, source: str, added: set[int], policy: dict) -> list
                 isinstance(stmt, ast.Pass) for stmt in node.body
             ):
                 out.append(_finding("silent-except", "No silencies errores con except Exception: pass.", path, line))
-        elif in_service and isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call):
-            if isinstance(node.exc.func, ast.Name) and node.exc.func.id in BUILTIN_BUSINESS_ERRORS:
-                out.append(_finding("business-error-type", "Usa una excepción de errors.py para errores de negocio.", path, line))
+        elif in_service and isinstance(node, ast.Raise) and node.exc is not None:
+            error_type = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
+            direct = isinstance(error_type, ast.Name) and error_type.id in error_types
+            qualified = isinstance(error_type, ast.Attribute) and isinstance(error_type.value, ast.Name)
+            from_errors = qualified and error_type.value.id in error_modules
+            if not (direct or from_errors):
+                out.append(_finding("business-error-type", "En services, usa excepciones de errors.py.", path, line))
         elif in_service and isinstance(node, ast.Name) and node.id in {"request", "response"}:
             out.append(_finding("service-http-coupling", "Un servicio no debe depender de request/response HTTP.", path, line))
     return out

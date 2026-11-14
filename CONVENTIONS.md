@@ -17,7 +17,7 @@ añadidas del push o PR; los requisitos de tests se evalúan por cambio completo
 
 ## Manejo de errores
 - Prohibido `except:` desnudo o `except Exception: pass`.
-- Los errores de negocio usan excepciones propias de `errors.py`.
+- En `services/`, las excepciones lanzadas usan tipos propios importados de `errors.py`.
 
 ## Calidad
 - Prohibido `print()` en código de producción; usa `logging`.
