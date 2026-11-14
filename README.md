@@ -26,6 +26,13 @@ integración en `main` cuando falla el check. Para probarlo localmente:
 PYTHONPATH=src python -m guardian.gate --base HEAD~1 --head HEAD
 ```
 
+**Evidencia real:** el [PR válido #1](https://github.com/JaqzO8/py-guardian/pull/1)
+pasó los tres checks y se integró. El [PR inválido #2](https://github.com/JaqzO8/py-guardian/pull/2)
+queda abierto como demostración: `guardian-policy` detectó cinco incumplimientos y
+GitHub muestra `BLOCKED`. Un push directo del mismo commit a `main` recibió
+`GH006: Protected branch update failed`. La rama de demo contiene código
+deliberadamente inválido; **no debe fusionarse**.
+
 ## Arquitectura
 
 ```mermaid
